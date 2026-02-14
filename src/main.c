@@ -8,26 +8,34 @@
 #define SPHERE_COUNT 5
 
 typedef struct {
+  Color color;
+  float specular;
+  float shininess;
+} SphereMaterial;
+
+typedef struct {
   Vector3 position;
   float radius;
-  Color color;
+  SphereMaterial material;
 } Sphere;
 
 int main(void) {
   InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "raytracer");
 
+  SphereMaterial red = {.color=RED, .specular=1.f, .shininess=256};
+
   Color pixels[SCREEN_HEIGHT][SCREEN_WIDTH];
   Sphere spheres[SPHERE_COUNT];
   Sphere sphere;
 
-  spheres[0] = (Sphere){.position = {3, 0, 10}, .radius = 2.f, .color = RED};
-  spheres[1] = (Sphere){.position = {5, -5, 14}, .radius = 3.f, .color = BLUE};
+  spheres[0] = (Sphere){.position = {3, 0, 10}, .radius = 2.f, .material = red};
+  spheres[1] = (Sphere){.position = {5, -5, 14}, .radius = 3.f, .material = red};
   spheres[2] =
-      (Sphere){.position = {0, 2, 20}, .radius = 5.f, .color = RAYWHITE};
+      (Sphere){.position = {0, 2, 20}, .radius = 5.f, .material = red};
   spheres[3] =
-      (Sphere){.position = {-2, -1, 8}, .radius = 1.f, .color = PURPLE};
+      (Sphere){.position = {-2, -1, 8}, .radius = 1.f,.material = red};
   spheres[4] =
-      (Sphere){.position = {1, 2, 5}, .radius = 0.5f, .color = DARKBLUE};
+      (Sphere){.position = {1, 2, 5}, .radius = 0.5f, .material = red};
 
   Camera camera = {.position = {0, 0, 0},
                    .target = {0, 0, 10},
@@ -42,7 +50,7 @@ int main(void) {
                  .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8};
 
   Texture2D texture = LoadTextureFromImage(image);
-  Vector3 light_dir = Vector3Normalize((Vector3){1, 1, -0.5});
+  Vector3 light_dir = Vector3Normalize((Vector3){0.4, 1, -0.8});
 
   while (!WindowShouldClose()) {
     BeginDrawing();
@@ -74,13 +82,23 @@ int main(void) {
           continue;
         }
 
+        SphereMaterial material = nearest_sphere.material;
         float diffuse =
             fmaxf(Vector3DotProduct(nearest_collision.normal, light_dir), 0.0);
+        
+        Vector3 view_dir = Vector3Normalize(Vector3Subtract(camera.position, nearest_collision.point));
+        Vector3 reflect_dir = Vector3Reflect(Vector3Negate(light_dir), nearest_collision.normal);
+        
+        float specular = pow(fmaxf(Vector3DotProduct(view_dir, reflect_dir), 0.0), material.shininess) *
+        material.specular;
 
-        pixels[y][x] = (Color){.r = nearest_sphere.color.r * diffuse,
-                               .g = nearest_sphere.color.g * diffuse,
-                               .b = nearest_sphere.color.b * diffuse,
-                               .a = nearest_sphere.color.a};
+        float result = Clamp(diffuse + specular, 0, 1);
+
+
+        pixels[y][x] = (Color){.r = material.color.r * (result),
+                               .g = material.color.g * (result),
+                               .b = material.color.b * (result),
+                               .a = material.color.a};
       }
     }
     UpdateTexture(texture, pixels);
